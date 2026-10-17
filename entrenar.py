@@ -39,16 +39,19 @@ def crear_estado(env):
     obs, infos = env.reset()
     aprendiz_es_p1 = np.arange(NUM_ENVS) < NUM_ENVS // 2
     obs_aprendiz = np.where(aprendiz_es_p1[:, None], obs["p1"], obs["p2"])
+    obs_oponente = np.where(aprendiz_es_p1[:, None], obs["p2"], obs["p1"])
 
     n_obs = obs_aprendiz.shape[1]
     n_acciones = env.action_space("p1").n
     red = RedActorCritico(n_obs, n_acciones)
+    rival = RedActorCritico(n_obs, n_acciones)
     optimizador = torch.optim.Adam(red.parameters(), lr=LEARNING_RATE, eps=1e-5)
     next_obs = torch.tensor(obs_aprendiz, dtype=torch.float32)
+    next_obs_oponente = torch.tensor(obs_oponente, dtype=torch.float32)
     next_done = torch.zeros(NUM_ENVS)
-    return Estado(env=env, red=red, optimizador=optimizador,
-                  next_obs=next_obs, next_done=next_done,
-                  aprendiz_es_p1=aprendiz_es_p1)
+    return Estado(env=env, red=red, oponente=rival, optimizador=optimizador,
+                  aprendiz_es_p1=aprendiz_es_p1, next_obs=next_obs,
+                  next_obs_oponente=next_obs_oponente, next_done=next_done)
 
 
 def acciones_aleatorias():
@@ -98,12 +101,15 @@ def poblar_tablas(estado, datos):
         datos["logprobs"][step] = logprob
         datos["values"][step] = valor.flatten()
 
+        with torch.no_grad():
+            accion_op, _, _, _ = estado.oponente.obtener_accion_y_valor(estado.next_obs_oponente)
+
         accion_red = accion.numpy()
-        accion_aleatoria = np.random.randint(0, N_ACCIONES, size=NUM_ENVS)
+        accion_oponente = accion_op.numpy()
 
         acciones_juego = {
-            "p1": np.where(estado.aprendiz_es_p1, accion_red, accion_aleatoria),
-            "p2": np.where(estado.aprendiz_es_p1, accion_aleatoria, accion_red),
+            "p1": np.where(estado.aprendiz_es_p1, accion_red, accion_oponente),
+            "p2": np.where(estado.aprendiz_es_p1, accion_oponente, accion_red),
         }
 
         obs_env, rew, term, trunc, infos = estado.env.step(acciones_juego)
@@ -219,6 +225,7 @@ def main():
 
 
         for iteracion in range(1, NUM_ITERACIONES + 1):
+            estado.oponente.load_state_dict(estado.red.state_dict())
             datos = recolectar(estado)
             calcular_ventajas(estado, datos)
             metricas = actualizar_red(estado, datos)
