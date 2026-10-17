@@ -1,0 +1,15 @@
+# Entorno virtual: pesa mucho y cada máquina crea el suyo
+.venv/
+
+# Archivos que Python genera solo
+__pycache__/
+
+# Marcas de Windows
+*Zone.Identifier
+
+# Paquete para Mac y archivos temporales
+footsies_para_mac/
+*.zip
+
+# Registros de TensorBoard (para más adelante)
+runs/

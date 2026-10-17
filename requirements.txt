@@ -1,0 +1,3 @@
+footsies-gym
+torch
+numpy
