@@ -36,15 +36,19 @@ def crear_entorno():
 
 
 def crear_estado(env):
-    """Reinicia el entorno, crea la red y devuelve el Estado inicial."""
     obs, infos = env.reset()
-    n_obs = obs["p1"].shape[1]
+    aprendiz_es_p1 = np.arange(NUM_ENVS) < NUM_ENVS // 2
+    obs_aprendiz = np.where(aprendiz_es_p1[:, None], obs["p1"], obs["p2"])
+
+    n_obs = obs_aprendiz.shape[1]
     n_acciones = env.action_space("p1").n
     red = RedActorCritico(n_obs, n_acciones)
     optimizador = torch.optim.Adam(red.parameters(), lr=LEARNING_RATE, eps=1e-5)
-    next_obs = torch.tensor(obs["p1"], dtype=torch.float32)
+    next_obs = torch.tensor(obs_aprendiz, dtype=torch.float32)
     next_done = torch.zeros(NUM_ENVS)
-    return Estado(env=env, red=red, optimizador=optimizador, next_obs=next_obs, next_done=next_done)
+    return Estado(env=env, red=red, optimizador=optimizador,
+                  next_obs=next_obs, next_done=next_done,
+                  aprendiz_es_p1=aprendiz_es_p1)
 
 
 def acciones_aleatorias():
@@ -94,12 +98,18 @@ def poblar_tablas(estado, datos):
         datos["logprobs"][step] = logprob
         datos["values"][step] = valor.flatten()
 
-        acciones_juego = acciones_aleatorias()
-        acciones_juego["p1"] = accion.numpy()
+        accion_red = accion.numpy()
+        accion_aleatoria = np.random.randint(0, N_ACCIONES, size=NUM_ENVS)
+
+        acciones_juego = {
+            "p1": np.where(estado.aprendiz_es_p1, accion_red, accion_aleatoria),
+            "p2": np.where(estado.aprendiz_es_p1, accion_aleatoria, accion_red),
+        }
 
         obs_env, rew, term, trunc, infos = estado.env.step(acciones_juego)
 
-        datos["rewards"][step] = torch.tensor(rew["p1"], dtype=torch.float32)
+        recompensa = np.where(estado.aprendiz_es_p1, rew["p1"], rew["p2"])
+        datos["rewards"][step] = torch.tensor(recompensa, dtype=torch.float32)
 
         estado.actualizar(obs_env, term, trunc)
 
@@ -188,10 +198,16 @@ def actualizar_red(estado, datos):
     }
 
 def contar_resultados(datos):
-    """Devuelve cuántas partidas ganó p1 y cuántas terminaron en esta recolección."""
-    victorias = (datos["rewards"] > 0).sum().item()
-    partidas = (datos["rewards"] != 0).sum().item()
-    return victorias, partidas
+    """Victorias y partidas terminadas del aprendiz, separadas por lado."""
+    mitad = NUM_ENVS // 2
+    r = datos["rewards"]
+    lado_p1, lado_p2 = r[:, :mitad], r[:, mitad:]
+    return {
+        "victorias_p1": (lado_p1 > 0).sum().item(),
+        "partidas_p1": (lado_p1 != 0).sum().item(),
+        "victorias_p2": (lado_p2 > 0).sum().item(),
+        "partidas_p2": (lado_p2 != 0).sum().item(),
+    }
 
 def main():
     np.random.seed(SEMILLA)
@@ -199,29 +215,29 @@ def main():
     env = crear_entorno()
     try:
         estado = crear_estado(env)
-        victorias_acum = 0
-        partidas_acum = 0
+        acum = {"victorias_p1": 0, "partidas_p1": 0, "victorias_p2": 0, "partidas_p2": 0}
+
 
         for iteracion in range(1, NUM_ITERACIONES + 1):
             datos = recolectar(estado)
             calcular_ventajas(estado, datos)
             metricas = actualizar_red(estado, datos)
 
-            victorias, partidas = contar_resultados(datos)
-            victorias_acum += victorias
-            partidas_acum += partidas
+            resultados = contar_resultados(datos)
+            for clave in acum:
+                acum[clave] += resultados[clave]
 
             if iteracion % 10 == 0:
-                win_rate = victorias_acum / max(partidas_acum, 1)
+                wr_p1 = acum["victorias_p1"] / max(acum["partidas_p1"], 1)
+                wr_p2 = acum["victorias_p2"] / max(acum["partidas_p2"], 1)
                 print(
                     f"Iteración {iteracion:4d} | "
-                    f"win rate {win_rate:6.1%} ({partidas_acum} partidas) | "
+                    f"como p1 {wr_p1:6.1%} | como p2 {wr_p2:6.1%} | "
                     f"entropía {metricas['entropia']:.3f} | "
                     f"kl {metricas['approx_kl']:.4f} | "
                     f"clipfrac {metricas['clipfrac']:.3f}"
                 )
-                victorias_acum = 0
-                partidas_acum = 0
+                acum = {clave: 0 for clave in acum}
 
         torch.save(estado.red.state_dict(), "modelo.pt")
         print("Modelo guardado en modelo.pt")
