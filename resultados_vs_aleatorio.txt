@@ -1,0 +1,81 @@
+
+ppo_vs_aleatorio_s1 vs aleatorio: 2048 pasos en 64 partidas...
+
+                         |   como p1 |   como p2 |     total
+-------------------------------------------------------------
+ppo_vs_aleatorio_s1      |     77.5% |     77.7% |     77.6%
+aleatorio                |     22.3% |     22.5% |     22.4%
+-------------------------------------------------------------
+2620 partidas: ppo_vs_aleatorio_s1 ganó 2033, aleatorio ganó 587, 0 empates por tiempo.
+
+dreamer_vs_aleatorio_s1 vs aleatorio: 2048 pasos en 64 partidas...
+
+                         |   como p1 |   como p2 |     total
+-------------------------------------------------------------
+dreamer_vs_aleatorio_s1  |     81.0% |     81.7% |     81.4%
+aleatorio                |     18.3% |     19.0% |     18.6%
+-------------------------------------------------------------
+5389 partidas: dreamer_vs_aleatorio_s1 ganó 4384, aleatorio ganó 1005, 0 empates por tiempo.
+
+ppo_liga_s1 vs aleatorio: 2048 pasos en 64 partidas...
+
+                         |   como p1 |   como p2 |     total
+-------------------------------------------------------------
+ppo_liga_s1              |     51.8% |     69.6% |     58.3%
+aleatorio                |     30.4% |     48.2% |     41.7%
+-------------------------------------------------------------
+853 partidas: ppo_liga_s1 ganó 497, aleatorio ganó 356, 0 empates por tiempo.
+
+dreamer_liga_s1_largo vs aleatorio: 2048 pasos en 64 partidas...
+
+                         |   como p1 |   como p2 |     total
+-------------------------------------------------------------
+dreamer_liga_s1_largo    |     80.9% |     80.5% |     80.7%
+aleatorio                |     19.5% |     19.1% |     19.3%
+-------------------------------------------------------------
+5075 partidas: dreamer_liga_s1_largo ganó 4097, aleatorio ganó 978, 0 empates por tiempo.
+
+dreamer_vs_aleatorio_s1 vs ppo_vs_aleatorio_s1: 2048 pasos en 64 partidas...
+
+                         |   como p1 |   como p2 |     total
+-------------------------------------------------------------
+dreamer_vs_aleatorio_s1  |     64.8% |     78.5% |     71.7%
+ppo_vs_aleatorio_s1      |     21.5% |     35.2% |     28.3%
+-------------------------------------------------------------
+6658 partidas: dreamer_vs_aleatorio_s1 ganó 4773, ppo_vs_aleatorio_s1 ganó 1885, 0 empates por tiempo.
+
+ppo_liga_s1 vs ppo_vs_aleatorio_s1: 2048 pasos en 64 partidas...
+
+                         |   como p1 |   como p2 |     total
+-------------------------------------------------------------
+ppo_liga_s1              |     35.5% |     48.2% |     41.2%
+ppo_vs_aleatorio_s1      |     51.8% |     64.5% |     58.8%
+-------------------------------------------------------------
+2149 partidas: ppo_liga_s1 ganó 886, ppo_vs_aleatorio_s1 ganó 1263, 0 empates por tiempo.
+
+dreamer_liga_s1_largo vs dreamer_vs_aleatorio_s1: 2048 pasos en 64 partidas...
+
+                         |   como p1 |   como p2 |     total
+-------------------------------------------------------------
+dreamer_liga_s1_largo    |     94.0% |     97.3% |     95.6%
+dreamer_vs_aleatorio_s1  |      2.7% |      6.0% |      4.4%
+-------------------------------------------------------------
+8723 partidas: dreamer_liga_s1_largo ganó 8340, dreamer_vs_aleatorio_s1 ganó 383, 0 empates por tiempo.
+
+dreamer_liga_s1_largo vs ppo_vs_aleatorio_s1: 2048 pasos en 64 partidas...
+
+                         |   como p1 |   como p2 |     total
+-------------------------------------------------------------
+dreamer_liga_s1_largo    |     81.2% |     85.6% |     83.4%
+ppo_vs_aleatorio_s1      |     14.4% |     18.8% |     16.6%
+-------------------------------------------------------------
+6290 partidas: dreamer_liga_s1_largo ganó 5249, ppo_vs_aleatorio_s1 ganó 1041, 0 empates por tiempo.
+
+ppo_liga_s1 vs dreamer_vs_aleatorio_s1: 2048 pasos en 64 partidas...
+
+                         |   como p1 |   como p2 |     total
+-------------------------------------------------------------
+ppo_liga_s1              |     34.7% |     41.0% |     37.8%
+dreamer_vs_aleatorio_s1  |     59.0% |     65.3% |     62.2%
+-------------------------------------------------------------
+3991 partidas: ppo_liga_s1 ganó 1508, dreamer_vs_aleatorio_s1 ganó 2483, 0 empates por tiempo.
