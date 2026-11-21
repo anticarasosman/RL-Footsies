@@ -2,6 +2,8 @@
 
 Formato nuevo: {"formato": 2, "algoritmo": ..., "modo": ..., "lados": ..., ..., "pesos": state_dict}
 Formato antiguo: el state_dict solo. Se sigue pudiendo cargar.
+
+Los modelos de Dreamer guardan además "arquitectura" (los tamaños de sus redes).
 """
 import os
 
@@ -32,7 +34,11 @@ def cargar_modelo(ruta):
         pesos = contenido
         metadatos = {"formato": 1, "algoritmo": "ppo", "lados": "desconocido"}
 
-    red = RedActorCritico(*tamanos_de_la_red(pesos))
+    if metadatos.get("algoritmo") == "dreamer":
+        from algoritmos.dreamer import RedDreamer
+        red = RedDreamer(**metadatos["arquitectura"])
+    else:
+        red = RedActorCritico(*tamanos_de_la_red(pesos))
     red.load_state_dict(pesos)
     red.eval()
     return red, metadatos

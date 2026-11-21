@@ -1,4 +1,7 @@
-"""Jugadores: cualquier cosa con un método actuar(obs) -> acciones (array de enteros).
+"""Jugadores: cualquier cosa con un método actuar(obs, nuevas) -> acciones (array de enteros).
+
+`nuevas` marca las partidas cuya observación es la primera de una partida nueva. Los
+jugadores sin memoria (aleatorio, PPO) la ignoran; Dreamer la usa para borrar su memoria.
 
 Todos tienen además `nombre` y `lados` ("ambos", "p1" o "desconocido": de qué lados
 aprendió a jugar).
@@ -17,7 +20,7 @@ class JugadorAleatorio:
         self.nombre = "aleatorio"
         self.lados = "ambos"
 
-    def actuar(self, obs):
+    def actuar(self, obs, nuevas=None):
         return np.random.randint(0, self.n_acciones, size=obs.shape[0])
 
 
@@ -30,7 +33,10 @@ class JugadorRed:
         self.lados = lados
         self.determinista = determinista
 
-    def actuar(self, obs):
+    def reiniciar(self):
+        pass  # no tiene memoria
+
+    def actuar(self, obs, nuevas=None):
         with torch.no_grad():
             if self.determinista:
                 return self.red.actor(obs).argmax(dim=1).numpy()
@@ -43,5 +49,8 @@ def cargar_jugador(especificacion, n_acciones, determinista=False):
         return JugadorAleatorio(n_acciones)
     red, metadatos = cargar_modelo(especificacion)
     nombre = os.path.splitext(os.path.basename(especificacion))[0]
-    return JugadorRed(red, nombre=nombre, lados=metadatos.get("lados", "desconocido"),
-                      determinista=determinista)
+    lados = metadatos.get("lados", "desconocido")
+    if metadatos.get("algoritmo") == "dreamer":
+        from algoritmos.dreamer import JugadorDreamer
+        return JugadorDreamer(red, nombre=nombre, lados=lados, determinista=determinista)
+    return JugadorRed(red, nombre=nombre, lados=lados, determinista=determinista)

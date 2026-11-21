@@ -14,11 +14,12 @@ import traceback
 import torch
 
 from agente.red import RedActorCritico
+from algoritmos.dreamer import ConfigDreamer, Dreamer
 from algoritmos.ppo import PPO
 from comun.entorno import crear_entorno
 from comun.estado import Estado
 from comun.evaluacion import evaluar, linea_resumen
-from comun.jugadores import JugadorAleatorio
+from comun.jugadores import JugadorAleatorio, cargar_jugador
 from comun.modelos import cargar_modelo, guardar_modelo
 
 PASOS = 1000
@@ -87,7 +88,38 @@ def probar_guardar_y_cargar(estado):
     print("Mismas salidas después de cargar:", iguales)
 
 
+def probar_dreamer(env):
+    """Una iteración corta de Dreamer, y que el modelo guardado juegue igual al cargarlo."""
+    print("\n--- Dreamer (iteración corta vs aleatorio) ---")
+    estado = Estado(env)
+    config = ConfigDreamer(pasos_por_iteracion=40, largo_secuencia=32, batch=8,
+                           actualizaciones_por_iteracion=3)
+    dreamer = Dreamer(estado.n_obs, estado.n_acciones, estado.num_envs, config)
+    inicio = time.time()
+    datos, metricas = dreamer.iteracion(estado, JugadorAleatorio(estado.n_acciones))
+    print(f"Buffer: {dreamer.repeticion.tamano()} pasos por partida, "
+          f"recompensas {tuple(datos['rewards'].shape)}")
+    for clave, valor in metricas.items():
+        print(f"   {clave:20s} {valor:+.4f}")
+    print("Métricas válidas:", all(torch.isfinite(torch.tensor(v)) for v in metricas.values()))
+    print(f"Tiempo: {time.time() - inicio:.1f} s")
+
+    with tempfile.TemporaryDirectory() as carpeta:
+        ruta = os.path.join(carpeta, "dreamer.pt")
+        guardar_modelo(ruta, dreamer.red, **dreamer.metadatos(), lados="ambos")
+        cargado = cargar_jugador(ruta, estado.n_acciones, determinista=True)
+    original = dreamer.como_jugador()
+    original.determinista = True
+    obs, nuevas = estado.next_obs, torch.ones(estado.num_envs)
+    torch.manual_seed(0)
+    a = original.actuar(obs, nuevas)
+    torch.manual_seed(0)
+    b = cargado.actuar(obs, nuevas)
+    print("Mismas acciones después de cargar:", bool((a == b).all()))
+
+
 def main():
+    torch.set_num_threads(min(4, max(1, (os.cpu_count() or 2) // 2 - 1)))
     env = crear_entorno()
     try:
         print("Acciones:", env.action_space("p1"))
@@ -96,6 +128,7 @@ def main():
         probar_guardar_y_cargar(estado)
         probar_recoleccion(env)
         probar_entorno(env)
+        probar_dreamer(env)
     except Exception:
         print("Falló con este error:")
         traceback.print_exc()

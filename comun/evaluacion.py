@@ -22,8 +22,8 @@ def evaluar(jugador_a, jugador_b, env, pasos=256):
     empates = np.zeros(estado.num_envs)
 
     for _ in range(pasos):
-        acciones_a = jugador_a.actuar(estado.next_obs)
-        acciones_b = jugador_b.actuar(estado.next_obs_rival)
+        acciones_a = jugador_a.actuar(estado.next_obs, estado.next_done)
+        acciones_b = jugador_b.actuar(estado.next_obs_rival, estado.next_done)
         recompensa, terminadas = estado.paso(acciones_a, acciones_b)
         victorias += recompensa > 0
         derrotas += recompensa < 0

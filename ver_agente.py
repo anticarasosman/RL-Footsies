@@ -25,7 +25,7 @@ import torch
 import footsiesgym
 from footsiesgym.binary_manager import get_binary_manager
 
-from comun.modelos import cargar_modelo
+from comun.jugadores import cargar_jugador
 
 # Cada paso son 4 cuadros del juego, que corre a 60 cuadros por segundo.
 SEGUNDOS_POR_PASO = 4 / 60
@@ -106,15 +106,13 @@ def crear_entorno(plataforma, puerto):
     return footsiesgym.make(config=config, platform=plataforma, launch_binaries=False)
 
 
-def elegir_accion(red, obs_p1, determinista):
-    """Devuelve la acción de p1 como un entero entre 0 y 8."""
+def elegir_accion(jugador, obs_p1, nueva):
+    """Devuelve la acción de p1 como un entero entre 0 y 8.
+
+    `nueva` es True en la primera observación de cada partida (para jugadores con memoria).
+    """
     obs_tensor = torch.tensor(obs_p1, dtype=torch.float32).unsqueeze(0)  # (1, 88)
-    with torch.no_grad():
-        if determinista:
-            accion = red.actor(obs_tensor).argmax(dim=1)
-        else:
-            accion, _, _, _ = red.obtener_accion_y_valor(obs_tensor)
-    return int(accion.item())
+    return int(jugador.actuar(obs_tensor, np.array([nueva]))[0])
 
 
 def main():
@@ -127,7 +125,8 @@ def main():
         obs, infos = env.reset()
         n_obs = obs["p1"].shape[0]
         n_acciones = env.action_space("p1").n
-        red, _ = cargar_modelo(args.modelo)
+        jugador = cargar_jugador(args.modelo, n_acciones, args.determinista)
+        nueva = True
 
         modo = "determinista" if args.determinista else "muestreando"
         print(f"Modelo {args.modelo} cargado ({modo}). Ctrl + C para salir.\n")
@@ -138,11 +137,12 @@ def main():
 
         while args.partidas == 0 or partidas < args.partidas:
             acciones = {
-                "p1": elegir_accion(red, obs["p1"], args.determinista),
+                "p1": elegir_accion(jugador, obs["p1"], nueva),
                 "p2": int(np.random.randint(0, n_acciones)),
             }
             obs, rew, term, trunc, infos = env.step(acciones)
             time.sleep(pausa)
+            nueva = False
 
             if term["p1"] or trunc["p1"]:
                 partidas += 1
@@ -156,6 +156,7 @@ def main():
                 print(f"Partida {partidas}: {resultado}   "
                       f"[agente {victorias}/{partidas} = {victorias / partidas:.0%}]")
                 obs, infos = env.reset()
+                nueva = True
     except KeyboardInterrupt:
         print("\nDetenido por el usuario.")
     finally:

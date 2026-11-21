@@ -4,6 +4,9 @@ Ejemplos:
     python entrenar.py                                      # PPO con self-play, semilla 1
     python entrenar.py --modo vs_aleatorio --iteraciones 300
     python entrenar.py --semilla 3 --nombre ppo_selfplay_s3
+    python entrenar.py --modo liga                          # self-play + versiones antiguas
+    python entrenar.py --algoritmo dreamer --modo liga --iteraciones 300
+    python entrenar.py --modo liga --liga-cada 20 --liga-prob-actual 0.3
     python entrenar.py --rivales-eval aleatorio agentes_entrenados/PPOambosLadosVSRandom.pt
 
 Ver todas las opciones:  python entrenar.py --help
@@ -49,11 +52,24 @@ def leer_argumentos():
     p.add_argument("--eval-pasos", type=int, default=256)
     p.add_argument("--rivales-eval", nargs="*", default=RIVALES_EVAL,
                    help="'aleatorio' y/o rutas a .pt contra los que evaluar")
+    p.add_argument("--hilos", type=int, default=None,
+                   help="hilos de CPU para PyTorch (por defecto: unos pocos, para no "
+                        "competir con el juego)")
+    p.add_argument("--liga-cada", type=int, default=10,
+                   help="modo liga: cada cuántas iteraciones guardar una foto del aprendiz")
+    p.add_argument("--liga-prob-actual", type=float, default=0.5,
+                   help="modo liga: probabilidad de jugar contra la copia actual "
+                        "(el resto, contra una foto antigua)")
     args = p.parse_args()
 
     if args.nombre is None:
         args.nombre = f"{args.algoritmo}_{args.modo}_s{args.semilla}"
     return args
+
+
+def hilos_por_defecto():
+    """Si PyTorch usa todos los núcleos compite con el juego y todo se vuelve muy lento."""
+    return min(4, max(1, (os.cpu_count() or 2) // 2 - 1))
 
 
 def fijar_semilla(semilla):
@@ -89,14 +105,16 @@ def evaluar_contra_rivales(algoritmo, rivales, env_eval, pasos, iteracion):
 # ── Progreso del entrenamiento ────────────────────────────────────────
 
 
-def imprimir_progreso(iteracion, registro, metricas, inicio):
+def imprimir_progreso(iteracion, registro, metricas, inicio, modo, algoritmo):
     minutos = (time.time() - inicio) / 60
+    # Cada algoritmo dice qué métricas mostrar (Dreamer no tiene las mismas que PPO)
+    texto_metricas = "".join(f"{clave} {metricas[clave]:.4f} | "
+                             for clave in algoritmo.imprimir if clave in metricas)
     print(f"Iteración {iteracion:4d} | vs rival de entrenamiento: "
-          f"{linea_resumen(registro.resumen())} | "
-          f"entropía {metricas['entropia']:.3f} | "
-          f"kl {metricas['approx_kl']:.4f} | "
-          f"clipfrac {metricas['clipfrac']:.3f} | "
-          f"{minutos:.1f} min")
+          f"{linea_resumen(registro.resumen())} | {texto_metricas}"
+          f"{algoritmo.pasos_entorno / 1e6:.2f}M pasos | {minutos:.1f} min")
+    if hasattr(modo, "resumen_texto"):
+        print(f"               {modo.resumen_texto()}")
 
 
 # ── Entrenamiento ─────────────────────────────────────────────────────
@@ -104,7 +122,7 @@ def imprimir_progreso(iteracion, registro, metricas, inicio):
 
 def entrenar(args, env, env_eval, algoritmo, estado):
     """El loop principal: en cada iteración elige rival, entrena y registra."""
-    modo = MODOS[args.modo](algoritmo, estado.n_acciones)
+    modo = MODOS[args.modo](algoritmo, estado.n_acciones, args)
     registro = Registro(estado.lados)
     rivales = cargar_rivales_eval(args.rivales_eval, estado.n_acciones) if env_eval else []
     evaluar_ahora = bool(rivales) and args.eval_cada > 0
@@ -119,7 +137,7 @@ def entrenar(args, env, env_eval, algoritmo, estado):
         registro.agregar(datos)
 
         if iteracion % args.imprimir_cada == 0:
-            imprimir_progreso(iteracion, registro, metricas, inicio)
+            imprimir_progreso(iteracion, registro, metricas, inicio, modo, algoritmo)
             registro.reiniciar()
 
         if evaluar_ahora and iteracion % args.eval_cada == 0:
@@ -128,9 +146,8 @@ def entrenar(args, env, env_eval, algoritmo, estado):
 
 def guardar(args, algoritmo, iteraciones, sufijo=""):
     ruta = os.path.join(args.carpeta, f"{args.nombre}{sufijo}.pt")
-    guardar_modelo(ruta, algoritmo.red,
-                   algoritmo=algoritmo.nombre, modo=args.modo, lados="ambos",
-                   iteraciones=iteraciones, semilla=args.semilla)
+    guardar_modelo(ruta, algoritmo.red, **algoritmo.metadatos(), modo=args.modo,
+                   lados="ambos", iteraciones=iteraciones, semilla=args.semilla)
     print(f"Modelo guardado en {ruta}")
 
 
@@ -140,6 +157,7 @@ def guardar(args, algoritmo, iteraciones, sufijo=""):
 def main():
     args = leer_argumentos()
     fijar_semilla(args.semilla)
+    torch.set_num_threads(args.hilos or hilos_por_defecto())
     print(f"Entrenando {args.algoritmo} en modo {args.modo}, semilla {args.semilla}, "
           f"{args.iteraciones} iteraciones → {args.nombre}")
 

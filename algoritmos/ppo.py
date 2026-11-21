@@ -24,6 +24,7 @@ class ConfigPPO:
 
 class PPO:
     nombre = "ppo"
+    imprimir = ("entropia", "approx_kl", "clipfrac")   # métricas que muestra entrenar.py
 
     def __init__(self, n_obs, n_acciones, num_envs, config=None):
         self.config = config or ConfigPPO()
@@ -33,6 +34,14 @@ class PPO:
                                             lr=self.config.learning_rate, eps=1e-5)
         self.batch_size = self.config.num_steps * num_envs            # 8192 con 64 partidas
         self.minibatch_size = self.batch_size // self.config.num_minibatches
+        self.pasos_entorno = 0
+
+    def metadatos(self):
+        """Lo que se guarda junto a los pesos para saber cómo reconstruir la red."""
+        return {"algoritmo": self.nombre}
+
+    def crear_jugador(self, red, nombre):
+        return JugadorRed(red, nombre=nombre)
 
     def como_jugador(self):
         """El aprendiz como jugador (para evaluarlo); comparte la red, no la copia."""
@@ -74,11 +83,12 @@ class PPO:
             datos["logprobs"][step] = logprob
             datos["values"][step] = valor.flatten()
 
-            accion_rival = rival.actuar(estado.next_obs_rival)
+            accion_rival = rival.actuar(estado.next_obs_rival, estado.next_done)
             recompensa, terminadas = estado.paso(accion.numpy(), accion_rival)
 
             datos["rewards"][step] = torch.tensor(recompensa, dtype=torch.float32)
             datos["terminadas"][step] = torch.tensor(terminadas)
+            self.pasos_entorno += self.num_envs
         return datos
 
     # ── B. Ventajas (GAE) ─────────────────────────────────────────────

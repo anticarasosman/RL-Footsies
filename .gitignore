@@ -13,3 +13,5 @@ footsies_para_mac/
 
 # Registros de TensorBoard (para más adelante)
 runs/
+# Fotos de la liga: muchas y se pueden regenerar
+agentes_entrenados/*_liga/

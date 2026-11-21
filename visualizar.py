@@ -71,20 +71,19 @@ def estado_jugador(p):
     }
 
 
-def elegir_accion(red, obs_p1, determinista):
-    obs_tensor = torch.tensor(obs_p1, dtype=torch.float32).unsqueeze(0)
-    with torch.no_grad():
-        if determinista:
-            accion = red.actor(obs_tensor).argmax(dim=1)
-        else:
-            accion, _, _, _ = red.obtener_accion_y_valor(obs_tensor)
-    return int(accion.item())
+def elegir_accion(jugador, obs_p1, nueva):
+    """Devuelve la acción de p1 como un entero entre 0 y 8.
+
+    `nueva` es True en la primera observación de cada partida (para jugadores con memoria).
+    """
+    obs_tensor = torch.tensor(obs_p1, dtype=torch.float32).unsqueeze(0)  # (1, 88)
+    return int(jugador.actuar(obs_tensor, np.array([nueva]))[0])
 
 
 def jugar_y_grabar(ruta_modelo, n_partidas, determinista):
     """Juega n_partidas y devuelve una lista de cuadros para dibujar."""
     import footsiesgym
-    from comun.modelos import cargar_modelo
+    from comun.jugadores import cargar_jugador
 
     config = {"use_special_charge_action": True}
     env = footsiesgym.make(config=config, platform="linux")
@@ -92,14 +91,14 @@ def jugar_y_grabar(ruta_modelo, n_partidas, determinista):
     victorias = 0
     try:
         obs, infos = env.reset()
-        red, _ = cargar_modelo(ruta_modelo)
         n_acciones = env.action_space("p1").n
+        jugador = cargar_jugador(ruta_modelo, n_acciones, determinista)
 
         for partida in range(1, n_partidas + 1):
             paso = 0
             terminada = False
             while not terminada:
-                accion_p1 = elegir_accion(red, obs["p1"], determinista)
+                accion_p1 = elegir_accion(jugador, obs["p1"], nueva=(paso == 0))
                 accion_p2 = int(np.random.randint(0, n_acciones))
                 obs, rew, term, trunc, infos = env.step({"p1": accion_p1, "p2": accion_p2})
                 paso += 1

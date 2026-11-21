@@ -18,7 +18,9 @@ class Estado:
 
         obs, _ = env.reset()
         self.next_obs, self.next_obs_rival = obs_de_cada_jugador(obs, self.lados)
-        self.next_done = torch.zeros(self.num_envs)
+        # next_done[i] = 1 si la observación actual es la primera de una partida.
+        # Al reiniciar el entorno todas lo son (los jugadores con memoria la borran).
+        self.next_done = torch.ones(self.num_envs)
 
         self.n_obs = self.next_obs.shape[1]
         self.n_acciones = env.action_space("p1").n
