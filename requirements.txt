@@ -1,3 +1,6 @@
 footsies-gym
 torch
 numpy
+matplotlib
+pillow
+portpicker

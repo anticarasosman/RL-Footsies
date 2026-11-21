@@ -45,7 +45,7 @@ BLOQUEOS = {301, 305, 306, 350}
 
 def leer_argumentos():
     parser = argparse.ArgumentParser(description="Dibujar al agente peleando.")
-    parser.add_argument("--modelo", default="modelo.pt")
+    parser.add_argument("--modelo", default="agentes_entrenados/ppo_selfplay_s1.pt")
     parser.add_argument("--partidas", type=int, default=3)
     parser.add_argument("--determinista", action="store_true",
                         help="Elegir siempre la acción más probable en vez de muestrear.")
@@ -84,7 +84,7 @@ def elegir_accion(red, obs_p1, determinista):
 def jugar_y_grabar(ruta_modelo, n_partidas, determinista):
     """Juega n_partidas y devuelve una lista de cuadros para dibujar."""
     import footsiesgym
-    from agente.red import RedActorCritico
+    from comun.modelos import cargar_modelo
 
     config = {"use_special_charge_action": True}
     env = footsiesgym.make(config=config, platform="linux")
@@ -92,9 +92,7 @@ def jugar_y_grabar(ruta_modelo, n_partidas, determinista):
     victorias = 0
     try:
         obs, infos = env.reset()
-        red = RedActorCritico(obs["p1"].shape[0], env.action_space("p1").n)
-        red.load_state_dict(torch.load(ruta_modelo))
-        red.eval()
+        red, _ = cargar_modelo(ruta_modelo)
         n_acciones = env.action_space("p1").n
 
         for partida in range(1, n_partidas + 1):

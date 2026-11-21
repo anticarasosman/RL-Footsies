@@ -4,7 +4,7 @@ Funciona en macOS (donde la versión con ventana de FootsiesGym sí tiene gráfi
 y en Linux (donde por ahora el juego corre, pero la ventana no se ve).
 
 Uso:
-    python ver_agente.py                      # carga modelo.pt, muestrea acciones
+    python ver_agente.py                      # carga agentes_entrenados/ppo_selfplay_s1.pt, muestrea acciones
     python ver_agente.py --determinista       # elige siempre la acción más probable
     python ver_agente.py --velocidad 2        # el doble de rápido
     python ver_agente.py --partidas 5         # se detiene después de 5 partidas
@@ -25,7 +25,7 @@ import torch
 import footsiesgym
 from footsiesgym.binary_manager import get_binary_manager
 
-from agente.red import RedActorCritico
+from comun.modelos import cargar_modelo
 
 # Cada paso son 4 cuadros del juego, que corre a 60 cuadros por segundo.
 SEGUNDOS_POR_PASO = 4 / 60
@@ -33,7 +33,7 @@ SEGUNDOS_POR_PASO = 4 / 60
 
 def leer_argumentos():
     parser = argparse.ArgumentParser(description="Ver al agente entrenado jugar.")
-    parser.add_argument("--modelo", default="modelo.pt", help="Archivo con los pesos de la red.")
+    parser.add_argument("--modelo", default="agentes_entrenados/ppo_selfplay_s1.pt", help="Archivo con los pesos de la red.")
     parser.add_argument("--determinista", action="store_true",
                         help="Elegir siempre la acción más probable en vez de muestrear.")
     parser.add_argument("--velocidad", type=float, default=1.0,
@@ -106,13 +106,6 @@ def crear_entorno(plataforma, puerto):
     return footsiesgym.make(config=config, platform=plataforma, launch_binaries=False)
 
 
-def cargar_red(ruta, n_obs, n_acciones):
-    red = RedActorCritico(n_obs, n_acciones)
-    red.load_state_dict(torch.load(ruta, map_location="cpu"))
-    red.eval()
-    return red
-
-
 def elegir_accion(red, obs_p1, determinista):
     """Devuelve la acción de p1 como un entero entre 0 y 8."""
     obs_tensor = torch.tensor(obs_p1, dtype=torch.float32).unsqueeze(0)  # (1, 88)
@@ -134,7 +127,7 @@ def main():
         obs, infos = env.reset()
         n_obs = obs["p1"].shape[0]
         n_acciones = env.action_space("p1").n
-        red = cargar_red(args.modelo, n_obs, n_acciones)
+        red, _ = cargar_modelo(args.modelo)
 
         modo = "determinista" if args.determinista else "muestreando"
         print(f"Modelo {args.modelo} cargado ({modo}). Ctrl + C para salir.\n")
